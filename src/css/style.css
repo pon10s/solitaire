@@ -1,0 +1,272 @@
+/* ソリティア スタイル — 値の方針は docs/DESIGN.md 参照 */
+
+:root {
+  --felt: #1f6b3a;
+  --felt-dark: #175630;
+  --card-bg: #fdfdfb;
+  --card-border: #d8d8d2;
+  --suit-black: #1a1a1a;
+  --suit-red: #c5302a;
+  --slot: rgba(255, 255, 255, 0.12);
+  --text: #f2f5f3;
+  --accent: #f4c430;
+  /* カードサイズ（main.js が計算して上書きする） */
+  --cw: 52px;
+  --ch: 75px;
+}
+
+* { box-sizing: border-box; }
+
+/* hidden 属性は display 指定より優先させる（.header 等の display:flex に負けないように） */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: linear-gradient(160deg, var(--felt) 0%, var(--felt-dark) 100%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+               "Noto Sans JP", Meiryo, sans-serif;
+  min-height: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+/* ===== ヘッダー ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.header-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  line-height: 1.3;
+}
+.info-game { font-weight: 700; }
+.info-stats { opacity: 0.9; font-size: 12px; }
+
+/* ===== ボタン ===== */
+.btn {
+  background: var(--accent);
+  color: #3a2c00;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+
+/* ===== メニュー（タイトル画面） ===== */
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.title {
+  font-size: clamp(32px, 12vw, 56px);
+  margin: 0 0 4px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.subtitle {
+  margin: 0 0 28px;
+  opacity: 0.85;
+}
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(320px, 80vw);
+}
+.menu-buttons .btn {
+  padding: 16px;
+  font-size: 18px;
+}
+.menu-buttons .btn:disabled {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: default;
+}
+
+/* ===== 盤面 ===== */
+.board {
+  padding: 6px 6px 20px;
+  touch-action: none;
+}
+
+.top-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  align-items: flex-start;
+}
+
+.top-row .spacer { flex: 1; }
+
+.tableau-row {
+  display: flex;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+/* パイル（山）コンテナ */
+.pile {
+  width: var(--cw);
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== カード ===== */
+.card {
+  width: var(--cw);
+  height: var(--ch);
+  border-radius: calc(var(--cw) * 0.09);
+  border: 1px solid var(--card-border);
+  flex-shrink: 0;
+  position: relative;
+  cursor: grab;
+}
+
+/* 空スロット */
+.card.slot {
+  background: var(--slot);
+  border: 2px dashed rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cw) * 0.32);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: default;
+}
+
+/* 裏面 */
+.card.back {
+  background: linear-gradient(135deg, #1e4c8a 0%, #2a6ed4 100%);
+  cursor: default;
+}
+.card.back::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: calc(var(--cw) * 0.06);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.04) 0px, rgba(255, 255, 255, 0.04) 2px,
+    transparent 2px, transparent 8px
+  );
+}
+
+/* 表面（赤・黒） */
+.card.face-up {
+  background: var(--card-bg);
+}
+.card.face-up.red  { color: var(--suit-red); }
+.card.face-up.black { color: var(--suit-black); }
+
+/* カードのランク＋スート表示 */
+.card-label {
+  position: absolute;
+  font-weight: 800;
+  line-height: 1;
+  font-size: clamp(9px, calc(var(--cw) * 0.27), 16px);
+  padding: 2px 3px;
+}
+.card-label.tl { top: 0; left: 0; text-align: left; }
+.card-label.br { bottom: 0; right: 0; transform: rotate(180deg); text-align: left; }
+
+/* 大きいスート（カード中央） */
+.card-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(12px, calc(var(--cw) * 0.42), 28px);
+  opacity: 0.15;
+}
+
+/* スパイダーの完成数など情報タイル */
+.pile.info-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ch);
+  font-size: clamp(14px, calc(var(--cw) * 0.38), 22px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: calc(var(--cw) * 0.09);
+  cursor: default;
+}
+
+/* ドロップ先ハイライト */
+.pile.drop-highlight .card:last-child,
+.pile.drop-highlight .card.slot {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ドラッグ中の元カード（薄く表示して「動かしている」とわかるように） */
+.card.dragging {
+  opacity: 0.3;
+  outline: 2px dashed rgba(244, 196, 48, 0.7);
+  outline-offset: 1px;
+}
+
+/* ===== ドラッグゴースト ===== */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.9;
+  display: flex;
+  flex-direction: column;
+  width: var(--cw);
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.45));
+}
+
+/* ===== クリア演出オーバーレイ ===== */
+.clear-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+}
+.clear-box {
+  background: var(--card-bg);
+  color: var(--suit-black);
+  border-radius: 20px;
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+.clear-box h2       { margin: 0 0 8px; font-size: 28px; }
+.clear-stats        { margin: 0 0 6px; font-size: 17px; color: #444; }
+.clear-best         { margin: 0 0 18px; font-size: 14px; color: #888; }
+.new-best           { color: #b8600a; font-weight: 700; font-size: 15px; }
+.clear-btns         { display: flex; gap: 10px; justify-content: center; }
+.clear-btns .btn    { font-size: 15px; }

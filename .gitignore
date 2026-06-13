@@ -1,0 +1,8 @@
+# AI 指示・開発管理ファイルは push しない
+CLAUDE.md
+CHANGELOG.md
+REQUIREMENTS.md
+docs/
+
+# AI スキル
+.claude/

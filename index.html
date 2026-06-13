@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ソリティア</title>
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+  <!-- ヘッダー（ゲーム中に表示） -->
+  <header id="header" class="header" hidden>
+    <button id="btn-menu" class="btn">≡ メニュー</button>
+    <div class="header-info">
+      <span id="info-game" class="info-game"></span>
+      <span class="info-stats">⏱ <span id="info-time">0:00</span> ／ 手数 <span id="info-moves">0</span></span>
+    </div>
+    <button id="btn-new" class="btn">新しく</button>
+  </header>
+
+  <!-- タイトル＆ゲーム選択メニュー -->
+  <main id="menu" class="menu">
+    <h1 class="title">ソリティア</h1>
+    <p class="subtitle">遊ぶゲームを選んでね</p>
+    <div id="menu-buttons" class="menu-buttons">
+      <!-- main.js がゲームボタンを差し込む -->
+    </div>
+  </main>
+
+  <!-- 盤面（ゲーム中に表示） -->
+  <div id="board" class="board" hidden></div>
+
+  <!-- クリア演出オーバーレイ -->
+  <div id="clear-overlay" class="clear-overlay" hidden></div>
+
+  <!-- 読み込み順: 土台 → 各ゲーム → 起動 -->
+  <script src="src/js/cards.js"></script>
+  <script src="src/js/dragdrop.js"></script>
+  <script src="src/js/ui.js"></script>
+  <script src="src/js/games/klondike.js"></script>
+  <script src="src/js/games/spider.js"></script>
+  <script src="src/js/games/freecell.js"></script>
+  <script src="src/js/main.js"></script>
+</body>
+</html>
