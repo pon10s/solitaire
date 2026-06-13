@@ -1,4 +1,5 @@
-/* dragdrop.js — Pointer Eventベースのドラッグ＆ドロップ（マウス・タッチ統一）。 */
+/* dragdrop.js — Pointer Eventベースのドラッグ＆ドロップ（マウス・タッチ統一）。
+   当たり判定: ゴーストと対象パイルのオーバーラップ面積で判断（緩め）。 */
 
 window.Solitaire = window.Solitaire || {};
 
@@ -18,7 +19,6 @@ window.Solitaire = window.Solitaire || {};
 
   function resolveCards(game, state, from, cardIdx) {
     if (game.getDraggableCards) return game.getDraggableCards(state, from, cardIdx);
-    // フォールバック: 場札は cardIdx から末尾まで、それ以外はトップ1枚
     if (from.type === 'tableau') {
       const cards = state.tableau[from.pileIdx].slice(cardIdx);
       return cards.some(c => !c.faceUp) ? [] : cards;
@@ -32,6 +32,40 @@ window.Solitaire = window.Solitaire || {};
       return pile.length > 0 ? [pile[pile.length - 1]] : [];
     }
     return [];
+  }
+
+  // ────────── オーバーラップ面積 ──────────
+  function overlapArea(ax, ay, aw, ah, b) {
+    const ox = Math.max(0, Math.min(ax + aw, b.right)  - Math.max(ax, b.left));
+    const oy = Math.max(0, Math.min(ay + ah, b.bottom) - Math.max(ay, b.top));
+    return ox * oy;
+  }
+
+  // ────────── ドロップターゲット（ゴーストとのオーバーラップ最大パイルを返す） ──────────
+  function findDropTarget() {
+    if (!drag) return null;
+    const { w, h } = Solitaire.ui.getCardSize();
+    const gx = parseFloat(drag.ghost.style.left);
+    const gy = parseFloat(drag.ghost.style.top);
+    const minArea = w * h * 0.08; // 8% 以上オーバーラップで有効
+
+    // ゴーストを一時非表示してヒットテスト
+    drag.ghost.style.visibility = 'hidden';
+    const piles = boardEl.querySelectorAll('.pile[data-pile]:not(.info-tile)');
+    let bestPile = null, bestArea = 0;
+
+    for (const pile of piles) {
+      // 場札列はトップカードの位置を基準にする
+      const isTablCol = pile.classList.contains('tableau-col');
+      const refEl = isTablCol
+        ? (pile.querySelector('.card:last-child') || pile)
+        : pile;
+      const r = refEl.getBoundingClientRect();
+      const area = overlapArea(gx, gy, w, h, r);
+      if (area > bestArea) { bestArea = area; bestPile = pile; }
+    }
+    drag.ghost.style.visibility = '';
+    return bestArea >= minArea ? bestPile : null;
   }
 
   // ────────── pointerdown ──────────
@@ -72,8 +106,8 @@ window.Solitaire = window.Solitaire || {};
 
     // 元カードを半透明化
     const srcKey = from.type === 'freecell'   ? `freecell-${from.pileIdx}`
-                 : from.type === 'waste'      ? 'waste'
-                 : from.type === 'foundation' ? `foundation-${from.pileIdx}`
+                 : from.type === 'waste'       ? 'waste'
+                 : from.type === 'foundation'  ? `foundation-${from.pileIdx}`
                  : `tableau-${from.pileIdx}`;
     for (let i = 0; i < cards.length; i++) {
       const el = document.querySelector(`[data-pile="${srcKey}"][data-card-idx="${cardIdx + i}"]`);
@@ -93,7 +127,7 @@ window.Solitaire = window.Solitaire || {};
     drag.ghost.style.top  = (e.clientY - drag.offsetY) + 'px';
     drag.moved = true;
 
-    const target = findDropTarget(e.clientX, e.clientY);
+    const target = findDropTarget();
     if (drag.lastHighlight && drag.lastHighlight !== target)
       drag.lastHighlight.classList.remove('drop-highlight');
     if (target) {
@@ -101,10 +135,14 @@ window.Solitaire = window.Solitaire || {};
       if (to && getGame().canMove(getState(), drag.from, drag.cards, to)) {
         target.classList.add('drop-highlight');
         drag.lastHighlight = target;
-      } else if (drag.lastHighlight === target) {
-        target.classList.remove('drop-highlight');
-        drag.lastHighlight = null;
+      } else {
+        if (drag.lastHighlight === target) {
+          target.classList.remove('drop-highlight');
+          drag.lastHighlight = null;
+        }
       }
+    } else {
+      drag.lastHighlight = null;
     }
   }
 
@@ -116,7 +154,7 @@ window.Solitaire = window.Solitaire || {};
     if (drag.lastHighlight) drag.lastHighlight.classList.remove('drop-highlight');
 
     if (drag.moved) {
-      const target = findDropTarget(e.clientX, e.clientY);
+      const target = findDropTarget();
       if (target) {
         const to = parsePile(target.dataset.pile);
         if (to && getGame().canMove(getState(), drag.from, drag.cards, to)) {
@@ -134,20 +172,6 @@ window.Solitaire = window.Solitaire || {};
       drag.draggingEls.forEach(el => el.classList.remove('dragging'));
     }
     drag = null;
-  }
-
-  function findDropTarget(x, y) {
-    if (drag) drag.ghost.style.display = 'none';
-    const els = document.elementsFromPoint(x, y);
-    if (drag) drag.ghost.style.display = '';
-    for (const el of els) {
-      if (el.classList?.contains('pile') && el.dataset.pile) return el;
-      if (el.classList?.contains('card') && el.dataset.pile) {
-        const p = el.closest('.pile');
-        if (p) return p;
-      }
-    }
-    return null;
   }
 
   // ────────── ダブルタップ → 自動移動 ──────────

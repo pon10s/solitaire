@@ -12,10 +12,10 @@ window.Solitaire = window.Solitaire || {};
     const gap = 4, boardPad = 12;
     const topCols = (game && game.maxTopCols) || 0;
     const effectiveCols = Math.max(cols, topCols);
-    CARD_W = Math.max(30, Math.min(80,
+    CARD_W = Math.max(32, Math.min(90,
       Math.floor((vw - boardPad - (effectiveCols - 1) * gap) / effectiveCols)));
-    CARD_H = Math.round(CARD_W * 1.45);
-    FD_PEEK = Math.max(8,  Math.round(CARD_H * 0.17));
+    CARD_H = Math.round(CARD_W * 1.50);
+    FD_PEEK = Math.max(8,  Math.round(CARD_H * 0.16));
     FU_PEEK = Math.max(16, Math.round(CARD_H * 0.30));
   }
 

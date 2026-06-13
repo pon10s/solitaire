@@ -10,14 +10,14 @@
   --slot: rgba(255, 255, 255, 0.12);
   --text: #f2f5f3;
   --accent: #f4c430;
-  /* カードサイズ（main.js が計算して上書きする） */
+  /* カードサイズ（ui.js が計算して上書きする） */
   --cw: 52px;
   --ch: 75px;
 }
 
 * { box-sizing: border-box; }
 
-/* hidden 属性は display 指定より優先させる（.header 等の display:flex に負けないように） */
+/* hidden 属性は display 指定より優先させる */
 [hidden] { display: none !important; }
 
 html, body {
@@ -42,19 +42,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 8px 10px;
   background: rgba(0, 0, 0, 0.18);
 }
 .header-info {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.3;
 }
-.info-game { font-weight: 700; }
-.info-stats { opacity: 0.9; font-size: 12px; }
+.info-game  { font-weight: 700; font-size: 14px; }
+.info-stats { opacity: 0.9; font-size: 13px; }
 
 /* ===== ボタン ===== */
 .btn {
@@ -67,6 +67,8 @@ body {
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
+  /* 最小タップ高さ 44px */
+  min-height: 44px;
 }
 .btn:active { transform: scale(0.97); }
 
@@ -88,17 +90,32 @@ body {
 }
 .subtitle {
   margin: 0 0 28px;
+  font-size: 17px;
   opacity: 0.85;
 }
 .menu-buttons {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  width: min(320px, 80vw);
+  width: min(340px, 88vw);
 }
-.menu-buttons .btn {
+/* ゲームボタン行（ボタン本体＋📊） */
+.menu-buttons .game-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.menu-buttons .game-row .btn {
+  flex: 1;
   padding: 16px;
-  font-size: 18px;
+  font-size: 19px;
+}
+.menu-buttons .btn-hist {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--text);
+  font-size: 22px;
+  padding: 0 14px;
+  flex-shrink: 0;
 }
 .menu-buttons .btn:disabled {
   background: rgba(255, 255, 255, 0.2);
@@ -178,18 +195,16 @@ body {
 }
 
 /* 表面（赤・黒） */
-.card.face-up {
-  background: var(--card-bg);
-}
-.card.face-up.red  { color: var(--suit-red); }
+.card.face-up { background: var(--card-bg); }
+.card.face-up.red   { color: var(--suit-red); }
 .card.face-up.black { color: var(--suit-black); }
 
-/* カードのランク＋スート表示 */
+/* カードのランク＋スート表示 — くそ爺に優しい大きさ */
 .card-label {
   position: absolute;
   font-weight: 800;
   line-height: 1;
-  font-size: clamp(9px, calc(var(--cw) * 0.27), 16px);
+  font-size: clamp(11px, calc(var(--cw) * 0.34), 20px);
   padding: 2px 3px;
 }
 .card-label.tl { top: 0; left: 0; text-align: left; }
@@ -202,7 +217,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(12px, calc(var(--cw) * 0.42), 28px);
+  font-size: clamp(16px, calc(var(--cw) * 0.48), 36px);
   opacity: 0.15;
 }
 
@@ -227,7 +242,7 @@ body {
   outline-offset: 1px;
 }
 
-/* ドラッグ中の元カード（薄く表示して「動かしている」とわかるように） */
+/* ドラッグ中の元カード（薄く表示） */
 .card.dragging {
   opacity: 0.3;
   outline: 2px dashed rgba(244, 196, 48, 0.7);
@@ -255,18 +270,48 @@ body {
   justify-content: center;
   background: rgba(0, 0, 0, 0.55);
   z-index: 100;
+  padding: 16px;
 }
 .clear-box {
   background: var(--card-bg);
   color: var(--suit-black);
   border-radius: 20px;
-  padding: 32px 40px;
+  padding: 28px 32px;
   text-align: center;
   box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  width: 100%;
+  max-width: 380px;
+  max-height: 82vh;
+  overflow-y: auto;
 }
-.clear-box h2       { margin: 0 0 8px; font-size: 28px; }
+.clear-box h2       { margin: 0 0 10px; font-size: 26px; }
 .clear-stats        { margin: 0 0 6px; font-size: 17px; color: #444; }
-.clear-best         { margin: 0 0 18px; font-size: 14px; color: #888; }
-.new-best           { color: #b8600a; font-weight: 700; font-size: 15px; }
-.clear-btns         { display: flex; gap: 10px; justify-content: center; }
-.clear-btns .btn    { font-size: 15px; }
+.clear-best         { margin: 0 0 18px; font-size: 15px; color: #888; }
+.new-best           { color: #b8600a; font-weight: 700; font-size: 16px; }
+.clear-btns         { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.clear-btns .btn    { font-size: 16px; }
+
+/* ===== プレイ履歴テーブル ===== */
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  text-align: left;
+  margin-top: 6px;
+}
+.hist-table th,
+.hist-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #e0e0da;
+}
+.hist-table th {
+  font-weight: 700;
+  color: #666;
+  font-size: 13px;
+}
+.hist-section-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin: 14px 0 4px;
+  color: #333;
+}

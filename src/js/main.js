@@ -8,6 +8,7 @@ window.Solitaire = window.Solitaire || {};
     { id: 'spider',   label: 'スパイダー' },
     { id: 'freecell', label: 'フリーセル' },
   ];
+  const MAX_HISTORY = 30;
 
   const el = {
     menu:         document.getElementById('menu'),
@@ -33,27 +34,49 @@ window.Solitaire = window.Solitaire || {};
     el.board.hidden  = !inGame;
   }
 
+  // ────────── ゲームキー（履歴・スパイダー難易度を含む） ──────────
+  function gameHistKey(id, opts) {
+    if (id === 'spider') return 'history_spider_' + ((opts && opts.suitCount) || 1);
+    return 'history_' + id;
+  }
+  function currentHistKey() { return gameHistKey(currentGame.id, currentOptions); }
+
   // ────────── メニュー ──────────
   function buildMenu() {
     el.menuButtons.innerHTML = '';
     for (const item of MENU_ORDER) {
       const game = Solitaire.games[item.id];
       const ready = game && game.available;
+
+      const row = document.createElement('div');
+      row.className = 'game-row';
+
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.disabled = !ready;
       btn.textContent = item.label + (ready ? '' : '（準備中）');
+
       if (ready) {
         const best = loadBest(item.id);
         if (best) {
           const sub = document.createElement('small');
-          sub.style.cssText = 'display:block;font-size:11px;font-weight:400;opacity:0.7;margin-top:3px;';
+          sub.style.cssText = 'display:block;font-size:12px;font-weight:400;opacity:0.7;margin-top:4px;';
           sub.textContent = `ベスト: ${formatTime(best.time)} / ${best.moves}手`;
           btn.appendChild(sub);
         }
         btn.addEventListener('click', () => onMenuSelect(item.id));
+
+        const histBtn = document.createElement('button');
+        histBtn.className = 'btn btn-hist';
+        histBtn.textContent = '📊';
+        histBtn.title = '記録を見る';
+        histBtn.addEventListener('click', () => showHistory(item.id));
+        row.appendChild(btn);
+        row.appendChild(histBtn);
+      } else {
+        row.appendChild(btn);
       }
-      el.menuButtons.appendChild(btn);
+      el.menuButtons.appendChild(row);
     }
   }
 
@@ -67,25 +90,19 @@ window.Solitaire = window.Solitaire || {};
 
   // ────────── 難易度選択（スパイダー用） ──────────
   function askDifficulty(onSelect) {
-    el.clearOverlay.hidden = false;
-    el.clearOverlay.innerHTML = '';
-    const box = document.createElement('div');
-    box.className = 'clear-box';
-    const SUITS = [
-      { n: 1, label: '1スート（やさしい）',   desc: 'すべて♠。練習に最適。' },
-      { n: 2, label: '2スート（ふつう）',      desc: '♠と♥の2種類。' },
-      { n: 4, label: '4スート（むずかしい）',  desc: '全スート。本格的。' },
-    ];
-    box.innerHTML = `
+    showOverlay(`
       <h2>スパイダー</h2>
       <p class="clear-stats">難易度を選んでね</p>
       <div class="clear-btns" style="flex-direction:column;gap:10px;">
-        ${SUITS.map(s => `<button class="btn" data-n="${s.n}">${s.label}<small style="display:block;font-weight:400;font-size:12px;opacity:0.75">${s.desc}</small></button>`).join('')}
+        <button class="btn" data-n="1">1スート（やさしい）<small style="display:block;font-weight:400;font-size:13px;opacity:0.75">すべて♠。練習に最適。</small></button>
+        <button class="btn" data-n="2">2スート（ふつう）<small style="display:block;font-weight:400;font-size:13px;opacity:0.75">♠と♥の2種類。</small></button>
+        <button class="btn" data-n="4">4スート（むずかしい）<small style="display:block;font-weight:400;font-size:13px;opacity:0.75">全スート。本格的。</small></button>
       </div>
       <br>
-      <button class="btn" id="btn-diff-cancel" style="background:rgba(255,255,255,0.15);color:var(--text);">キャンセル</button>`;
-    el.clearOverlay.appendChild(box);
-    box.querySelectorAll('[data-n]').forEach(btn => {
+      <button class="btn" id="btn-diff-cancel" style="background:rgba(0,0,0,0.12);color:#555;">キャンセル</button>
+    `);
+    el.clearOverlay.querySelector('[data-n]') &&
+    el.clearOverlay.querySelectorAll('[data-n]').forEach(btn => {
       btn.addEventListener('click', () => {
         el.clearOverlay.hidden = true;
         onSelect(+btn.dataset.n);
@@ -128,8 +145,9 @@ window.Solitaire = window.Solitaire || {};
     if (!gameWon && currentGame.isWon(currentState)) handleWin();
   }
 
-  // ────────── タイマー・統計 ──────────
+  // ────────── タイマー ──────────
   function startTimer() {
+    if (timerHandle) return;
     timerHandle = setInterval(() => { timerSec++; updateStats(); }, 1000);
   }
   function stopTimer() {
@@ -152,39 +170,142 @@ window.Solitaire = window.Solitaire || {};
     return isNew;
   }
 
+  // ────────── プレイ履歴 ──────────
+  function loadHistory(key) {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  }
+  function appendHistory(key, entry) {
+    const list = loadHistory(key);
+    list.unshift(entry);
+    if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;
+    localStorage.setItem(key, JSON.stringify(list));
+  }
+
+  function showHistory(gameId) {
+    const game = Solitaire.games[gameId];
+    if (!game) return;
+
+    // スパイダーは3難易度まとめて表示
+    const sections = gameId === 'spider'
+      ? [
+          { key: 'history_spider_1', title: '1スート（やさしい）' },
+          { key: 'history_spider_2', title: '2スート（ふつう）' },
+          { key: 'history_spider_4', title: '4スート（むずかしい）' },
+        ]
+      : [{ key: 'history_' + gameId, title: null }];
+
+    let body = `<h2>${game.name} 記録</h2>`;
+    for (const sec of sections) {
+      const records = loadHistory(sec.key);
+      if (sec.title) body += `<p class="hist-section-title">${sec.title}</p>`;
+      if (records.length === 0) {
+        body += `<p style="color:#999;font-size:14px;margin:4px 0 12px;">まだ記録がありません</p>`;
+      } else {
+        body += `<table class="hist-table"><thead><tr><th>日時</th><th>タイム</th><th>手数</th></tr></thead><tbody>`;
+        for (const r of records) {
+          body += `<tr><td>${r.date}</td><td>${formatTime(r.time)}</td><td>${r.moves}手</td></tr>`;
+        }
+        body += `</tbody></table>`;
+      }
+    }
+    body += `<div class="clear-btns" style="margin-top:18px;"><button class="btn" id="btn-hist-close">閉じる</button></div>`;
+
+    showOverlay(body);
+    document.getElementById('btn-hist-close').addEventListener('click', () => {
+      el.clearOverlay.hidden = true;
+    });
+  }
+
   // ────────── クリア処理 ──────────
   function handleWin() {
     gameWon = true;
     stopTimer();
     const isNew = saveBest(currentGame.id, timerSec, moveCount);
     const best  = loadBest(currentGame.id);
+
+    // 履歴に追記
+    const now = new Date();
+    const dateStr = `${now.getMonth()+1}/${now.getDate()} `
+      + `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    appendHistory(currentHistKey(), { date: dateStr, time: timerSec, moves: moveCount });
+
     celebrateClear(() => showClearDialog(timerSec, moveCount, best, isNew));
   }
 
   function showClearDialog(time, moves, best, isNewBest) {
-    el.clearOverlay.hidden = false;
-    el.clearOverlay.innerHTML = '';
     const isTrulyNew = isNewBest && best && best.time === time && best.moves === moves;
     let bestLine = '';
-    if (isTrulyNew)      bestLine = '<p class="clear-best new-best">🏆 新記録！</p>';
-    else if (best)       bestLine = `<p class="clear-best">ベスト: ${formatTime(best.time)} ／ ${best.moves}手</p>`;
-    const box = document.createElement('div');
-    box.className = 'clear-box';
-    box.innerHTML = `
+    if (isTrulyNew)    bestLine = '<p class="clear-best new-best">🏆 新記録！</p>';
+    else if (best)     bestLine = `<p class="clear-best">ベスト: ${formatTime(best.time)} ／ ${best.moves}手</p>`;
+
+    showOverlay(`
       <h2>🎉 クリア！</h2>
       <p class="clear-stats">${formatTime(time)} ／ ${moves}手</p>
       ${bestLine}
       <div class="clear-btns">
         <button class="btn" id="btn-again">もう一度</button>
         <button class="btn" id="btn-to-menu">メニューへ</button>
-      </div>`;
-    el.clearOverlay.appendChild(box);
+      </div>
+    `);
     document.getElementById('btn-again').addEventListener('click', () => startGame(currentGame.id, currentOptions));
     document.getElementById('btn-to-menu').addEventListener('click', () => {
       el.clearOverlay.hidden = true;
       buildMenu();
       showScreen('menu');
     });
+  }
+
+  // ────────── 一時停止オーバーレイ ──────────
+  function showPauseOverlay() {
+    stopTimer();
+    showOverlay(`
+      <h2>⏸ 一時停止</h2>
+      <p class="clear-stats">${el.infoGame.textContent}</p>
+      <div class="clear-btns" style="flex-direction:column;gap:10px;">
+        <button class="btn" id="btn-resume">▶ ゲームに戻る</button>
+        <button class="btn" id="btn-go-menu" style="background:rgba(0,0,0,0.12);color:#555;">メニューへ（終了）</button>
+      </div>
+    `);
+    document.getElementById('btn-resume').addEventListener('click', () => {
+      el.clearOverlay.hidden = true;
+      startTimer();
+    });
+    document.getElementById('btn-go-menu').addEventListener('click', () => {
+      el.clearOverlay.hidden = true;
+      buildMenu();
+      showScreen('menu');
+    });
+  }
+
+  // ────────── リセット確認 ──────────
+  function confirmReset(onOk) {
+    stopTimer();
+    showOverlay(`
+      <h2>リセット</h2>
+      <p class="clear-stats">最初からやり直しますか？</p>
+      <div class="clear-btns">
+        <button class="btn" id="btn-reset-ok">はい</button>
+        <button class="btn" id="btn-reset-cancel" style="background:rgba(0,0,0,0.12);color:#555;">いいえ・続ける</button>
+      </div>
+    `);
+    document.getElementById('btn-reset-ok').addEventListener('click', () => {
+      el.clearOverlay.hidden = true;
+      onOk();
+    });
+    document.getElementById('btn-reset-cancel').addEventListener('click', () => {
+      el.clearOverlay.hidden = true;
+      if (!gameWon) startTimer();
+    });
+  }
+
+  // ────────── オーバーレイ共通表示ヘルパー ──────────
+  function showOverlay(html) {
+    el.clearOverlay.hidden = false;
+    el.clearOverlay.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'clear-box';
+    box.innerHTML = html;
+    el.clearOverlay.appendChild(box);
   }
 
   // ────────── クリア演出 ──────────
@@ -221,9 +342,9 @@ window.Solitaire = window.Solitaire || {};
       for (const p of particles) {
         if (elapsed < p.delay) { active = true; continue; }
         p.vy += 0.5; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
-        if (p.y > H - CH)  { p.y = H - CH;   p.vy = -Math.abs(p.vy) * 0.55; p.vx *= 0.92; p.vr *= 0.88; }
-        if (p.x < 0)       { p.x = 0;         p.vx =  Math.abs(p.vx) * 0.8; }
-        if (p.x > W - CW)  { p.x = W - CW;    p.vx = -Math.abs(p.vx) * 0.8; }
+        if (p.y > H - CH) { p.y = H - CH; p.vy = -Math.abs(p.vy) * 0.55; p.vx *= 0.92; p.vr *= 0.88; }
+        if (p.x < 0)      { p.x = 0;      p.vx =  Math.abs(p.vx) * 0.8; }
+        if (p.x > W - CW) { p.x = W - CW; p.vx = -Math.abs(p.vx) * 0.8; }
         p.el.style.left = p.x + 'px'; p.el.style.top = p.y + 'px';
         p.el.style.transform = `rotate(${p.rot}deg)`;
         if (p.y < H - CH + 2 || Math.abs(p.vy) > 0.8) active = true;
@@ -235,12 +356,19 @@ window.Solitaire = window.Solitaire || {};
   }
 
   // ────────── ボタン ──────────
-  el.btnMenu.addEventListener('click', () => { stopTimer(); showScreen('menu'); });
-  el.btnNew.addEventListener('click',  () => {
-    if (currentGame) {
-      if (currentGame.id === 'spider') askDifficulty(s => startGame('spider', { suitCount: s }));
-      else startGame(currentGame.id, currentOptions);
-    }
+  el.btnMenu.addEventListener('click', () => {
+    if (!gameWon) showPauseOverlay();
+  });
+
+  el.btnNew.addEventListener('click', () => {
+    if (!currentGame) return;
+    confirmReset(() => {
+      if (currentGame.id === 'spider') {
+        askDifficulty(s => startGame('spider', { suitCount: s }));
+      } else {
+        startGame(currentGame.id, currentOptions);
+      }
+    });
   });
 
   // ────────── dragdrop 初期化・起動 ──────────
